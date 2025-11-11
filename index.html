@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentación Interactiva: Concurrencia en Python</title>
+    <style>
+        /* === ESTILOS GLOBALES Y DE ESCRITORIO === */
+        body {
+            font-family: Arial, sans-serif; background-color: #f0f0f0; margin: 0;
+            padding: 40px; display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; box-sizing: border-box; transition: padding 0.3s ease;
+        }
+
+        .slideshow-container { position: relative; width: 90%; max-width: 960px; }
+        
+        .slide {
+            display: none; background-color: #fff; border: 1px solid #ccc;
+            height: 540px; padding: 40px 60px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            flex-direction: column; justify-content: center; position: relative;
+            box-sizing: border-box;
+        }
+
+        .fade { animation-name: fade; animation-duration: 0.5s; }
+        @keyframes fade { from {opacity: .4} to {opacity: 1} }
+
+        .prev, .next {
+            cursor: pointer; position: absolute; top: 50%; transform: translateY(-50%);
+            width: 50px; height: 50px; background-color: #cccccc; color: #333;
+            border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; font-size: 24px; transition: all 0.3s ease;
+            user-select: none; z-index: 10;
+        }
+
+        .prev { left: -70px; }
+        .next { right: -70px; }
+        .prev:hover, .next:hover { background-color: #aaaaaa; }
+
+        .slide h1 { font-size: 3.5em; text-align: center; border-bottom: 4px solid #11a800; padding-bottom: 20px; color: #005A9C; }
+        .slide h2 { font-size: 2.8em; margin-top: 0; margin-bottom: 30px; text-align: center; color: #005A9C; }
+        .single-content { text-align: center; }
+        .single-content p { font-size: 1.5em; color: #444; }
+        .single-content pre { font-size: 1.2em; display: inline-block; text-align: left; max-width: 100%; }
+        pre { background-color: #2d3636; color: #fff; padding: 15px; border-radius: 5px; font-size: 1.1em; white-space: pre-wrap; }
+        .footer { position: absolute; bottom: 20px; right: 40px; font-size: 1em; color: #888; }
+
+        /* === MEDIA QUERIES === */
+        @media screen and (max-width: 768px) {
+            body { padding: 15px; }
+            .slideshow-container { width: 100%; padding-bottom: 75px; }
+            .slide { height: auto; min-height: 75vh; padding: 20px 25px; }
+            .prev, .next { top: auto; bottom: 15px; width: 45px; height: 45px; }
+            .prev { left: 50%; transform: translateX(-110%); }
+            .next { left: 50%; transform: translateX(10%); right: auto; }
+            .slide h1 { font-size: 2.2em; }
+            .slide h2 { font-size: 1.8em; }
+            .single-content p { font-size: 1.1em; }
+            .single-content pre { font-size: 1em; }
+            .footer { font-size: 0.8em; right: 25px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="slideshow-container">
+        
+        <div class="slide fade">
+            <h1>Cheat Sheet de Python</h1>
+            <h2 style="color:#333; border:none;">Modelos de Concurrencia</h2>
+            <div class="footer">1 / 16</div>
+        </div>
+
+        <div class="slide fade">
+            <h2>El Problema: Tareas Lentas</h2>
+            <div class="single-content"><p>Muchas tareas, como esperar una respuesta de red o un cálculo complejo, "bloquean" el programa, impidiendo que haga otras cosas.</p></div>
+            <div class="footer">2 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Concurrencia vs. Paralelismo</h2>
+            <div class="single-content"><p><strong>Concurrencia:</strong> Gestionar múltiples tareas a la vez (un chef cortando verduras mientras vigila una olla).<br><br><strong>Paralelismo:</strong> Ejecutar múltiples tareas a la vez (varios chefs cocinando al mismo tiempo).</p></div>
+            <div class="footer">3 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>El Gran Obstáculo: El GIL</h2>
+            <div class="single-content"><p>El <strong>G</strong>lobal <strong>I</strong>nterpreter <strong>L</strong>ock es un cerrojo en CPython que solo permite que <strong>un hilo</strong> ejecute bytecode de Python a la vez. Esto significa que el `threading` no logra paralelismo real en tareas de CPU.</p></div>
+            <div class="footer">4 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Modelo 1: <code>threading</code></h2>
+            <div class="single-content"><p>Ejecuta tareas en hilos separados dentro del mismo proceso. Comparten la misma memoria.</p></div>
+            <div class="footer">5 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>¿Cuándo usar `threading`?</h2>
+            <div class="single-content"><p>Ideal para tareas <strong>I/O-bound</strong> (limitadas por Entrada/Salida). Mientras un hilo espera por la red o el disco, el GIL se libera y otro hilo puede ejecutarse.</p><pre><code># Ejemplos I/O-bound:
+# - Peticiones a APIs
+# - Lectura/escritura de archivos
+# - Consultas a bases de datos</code></pre></div>
+            <div class="footer">6 / 16</div>
+        </div>
+
+        <div class="slide fade">
+            <h2>Ejemplo con <code>threading</code></h2>
+            <div class="single-content"><p>Ambas tareas "esperan" concurrentemente. El tiempo total es de ~2s, no 3s.</p><pre><code>import threading
+import time
+
+def tarea_io(nombre, duracion):
+    print(f"{nombre} esperando...")
+    time.sleep(duracion)
+    print(f"{nombre} terminó.")
+
+t1 = threading.Thread(target=tarea_io, args=("A", 1))
+t2 = threading.Thread(target=tarea_io, args=("B", 2))
+t1.start()
+t2.start()
+t1.join()
+t2.join()</code></pre></div>
+            <div class="footer">7 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Modelo 2: <code>multiprocessing</code></h2>
+            <div class="single-content"><p>Ejecuta tareas en procesos completamente separados. Cada proceso tiene su propio intérprete de Python, su propia memoria y su propio GIL.</p></div>
+            <div class="footer">8 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>¿Cuándo usar `multiprocessing`?</h2>
+            <div class="single-content"><p>Ideal para tareas <strong>CPU-bound</strong> (limitadas por el procesador). Permite el paralelismo real, aprovechando todos los núcleos de la CPU.</p><pre><code># Ejemplos CPU-bound:
+# - Cálculos matemáticos intensivos
+# - Procesamiento de imágenes o video
+# - Simulaciones científicas</code></pre></div>
+            <div class="footer">9 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Ejemplo con <code>multiprocessing</code></h2>
+            <div class="single-content"><p>Ambas tareas se ejecutan en paralelo en diferentes núcleos de CPU.</p><pre><code>from multiprocessing import Process
+
+def tarea_cpu(nombre):
+    print(f"Proceso {nombre} iniciado.")
+    # Simula un cálculo intensivo
+    [i*i for i in range(10**7)]
+    print(f"Proceso {nombre} terminado.")
+
+p1 = Process(target=tarea_cpu, args=("A",))
+p2 = Process(target=tarea_cpu, args=("B",))
+p1.start()
+p2.start()
+p1.join()
+p2.join()</code></pre></div>
+            <div class="footer">10 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Modelo 3: <code>asyncio</code></h2>
+            <div class="single-content"><p>Concurrencia en <strong>un solo hilo</strong>. Un "event loop" gestiona las tareas, que ceden el control explícitamente con `await` cuando están esperando.</p></div>
+            <div class="footer">11 / 16</div>
+        </div>
+
+        <div class="slide fade">
+            <h2>¿Cuándo usar `asyncio`?</h2>
+            <div class="single-content"><p>Ideal para tareas <strong>I/O-bound de alto volumen</strong>. Es extremadamente eficiente para manejar miles de conexiones de red simultáneas (ej. en un servidor web).</p></div>
+            <div class="footer">12 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Ejemplo con <code>asyncio</code></h2>
+            <div class="single-content"><p>El tiempo total es de ~2s, no 3s. `asyncio.sleep` simula una espera de red no bloqueante.</p><pre><code>import asyncio
+
+async def tarea_async(nombre, duracion):
+    print(f"{nombre} esperando...")
+    await asyncio.sleep(duracion)
+    print(f"{nombre} terminó.")
+
+async def main():
+    await asyncio.gather(
+        tarea_async("A", 1),
+        tarea_async("B", 2)
+    )
+asyncio.run(main())</code></pre></div>
+            <div class="footer">13 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Resumen Comparativo</h2>
+            <div class="single-content"><p>
+                <strong>Threading:</strong> Concurrencia, I/O-bound, memoria compartida.<br><br>
+                <strong>Multiprocessing:</strong> Paralelismo, CPU-bound, memoria separada.<br><br>
+                <strong>Asyncio:</strong> Concurrencia en un hilo, I/O-bound de alto volumen.
+            </p></div>
+            <div class="footer">14 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Regla de Oro: ¿Cuál Elegir?</h2>
+            <div class="single-content"><p><strong>¿Tu programa está "pensando" mucho?</strong><br>Usa <code>multiprocessing</code>.<br><br>
+            <strong>¿Tu programa está "esperando" mucho?</strong><br>Usa <code>threading</code> (para empezar) o <code>asyncio</code> (para aplicaciones de red avanzadas).</p></div>
+            <div class="footer">15 / 16</div>
+        </div>
+        
+        <div class="slide fade">
+            <h2>Conclusión</h2>
+            <div class="single-content"><p>Python ofrece un modelo de concurrencia para cada tipo de problema. Elegir el correcto es clave para escribir aplicaciones rápidas y eficientes.</p></div>
+            <div class="footer">16 / 16</div>
+        </div>
+
+        <a class="prev" onclick="plusSlides(-1)">&#10094;</a>
+        <a class="next" onclick="plusSlides(1)">&#10095;</a>
+    </div>
+
+    <script>
+        let slideIndex = 1;
+        showSlides(slideIndex);
+
+        function plusSlides(n) {
+            showSlides(slideIndex += n);
+        }
+
+        function showSlides(n) {
+            let i;
+            let slides = document.getElementsByClassName("slide");
+            if (n > slides.length) { slideIndex = 1 } 
+            if (n < 1) { slideIndex = slides.length }
+            
+            for (i = 0; i < slides.length; i++) {
+                slides[i].style.display = "none";
+            }
+            
+            slides[slideIndex - 1].style.display = "flex";
+        }
+    </script>
+
+</body>
+</html>
